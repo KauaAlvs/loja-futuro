@@ -10,10 +10,8 @@ export async function GET() {
 
         if (error) throw error;
 
-        return NextResponse.json(data);
+        return NextResponse.json(data || []);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-
-// Você também pode adicionar um POST aqui futuramente para criar cupons via API
