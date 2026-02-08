@@ -1,40 +1,48 @@
 import { WelcomeEmail } from '@/emails/WelcomeEmail';
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { render } from '@react-email/render'; // <--- Importação nova
+import { render } from '@react-email/render';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
-    const { email, name } = await request.json();
+    const body = await request.json();
+    const { email, name } = body;
 
-    console.log("1. Iniciando envio para:", email);
+    // --- TRAVA DE SEGURANÇA ---
+    // Verifica se o email veio vazio ou inválido
+    if (!email || !email.includes('@')) {
+        console.error("❌ Tentativa de envio sem email válido:", email);
+        return NextResponse.json(
+            { error: "Por favor, digite um e-mail válido no campo." },
+            { status: 400 }
+        );
+    }
 
-    // 1. Transformamos o componente React em HTML (Texto) manualmente
-    // Isso evita que o Resend tente fazer isso e falhe
+    console.log("1. Preparando envio para:", email);
+
+    // Renderiza o HTML manualmente
     const emailHtml = await render(WelcomeEmail({ userFirstname: name || 'Visitante' }));
 
-    console.log("2. HTML gerado com sucesso!");
-
-    // 2. Enviamos o HTML pronto
+    // Envia
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev', // Modo Grátis: Só pode usar este remetente
-      to: [email],                   // Modo Grátis: Só pode enviar para o SEU email
+      from: 'onboarding@resend.dev', // OBRIGATÓRIO no modo grátis
+      to: email,                     // OBRIGATÓRIO ser seu email de cadastro
       subject: 'Bem-vindo ao Futuro! 🚀',
-      html: emailHtml,               // <--- Mudamos de 'react' para 'html'
+      html: emailHtml,
     });
 
     if (error) {
-      console.error("❌ Erro do Resend:", error);
-      return NextResponse.json({ error }, { status: 400 });
+      console.error("❌ Erro retornado pelo Resend:", error);
+      return NextResponse.json({ error }, { status: 422 });
     }
 
-    console.log("✅ Sucesso:", data);
+    console.log("✅ E-mail enviado com sucesso:", data);
     return NextResponse.json(data);
 
   } catch (error: any) {
-    console.error("❌ Erro no Servidor:", error);
+    console.error("❌ Erro interno:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
