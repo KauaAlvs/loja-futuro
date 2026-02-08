@@ -39,20 +39,11 @@ export default async function ProductPage(props: { params: Promise<{ id: string 
         );
     }
 
-    /**
-     * CÁLCULO DE ESTOQUE INTELIGENTE:
-     * Verifica se cada variante usa tabela de tamanhos ou estoque direto.
-     */
+    // CÁLCULO DE ESTOQUE TOTAL (Soma tudo o que encontrar: Tamanhos + Estoque Direto)
     const totalStock = product.product_variants?.reduce((acc: number, variant: any) => {
-        const hasSizeRecords = variant.product_stock && variant.product_stock.length > 0;
-        
-        if (hasSizeRecords) {
-            // Soma a quantidade dos tamanhos (P, M, G...)
-            return acc + variant.product_stock.reduce((sum: number, s: any) => sum + (Number(s.quantity) || 0), 0);
-        } else {
-            // Usa o estoque direto da variante (Bonés, Acessórios)
-            return acc + (Number(variant.stock) || 0);
-        }
+        const sizeStock = variant.product_stock?.reduce((sum: number, s: any) => sum + (Number(s.quantity) || 0), 0) || 0;
+        const directStock = Number(variant.stock) || 0;
+        return acc + sizeStock + directStock;
     }, 0) || 0;
 
     return (
