@@ -68,7 +68,7 @@ export function ProductDetailClient({ product, variants, totalStock }: ProductDe
             if (sizeObj && (Number(sizeObj.quantity) > 0)) {
                 addToCart({
                     id: sizeObj.id,
-                    productId: product.id, // <--- ADICIONADO PARA O LINK DA SIDEBAR
+                    productId: product.id, // <--- ADICIONADO: Garante que o link da sidebar funcione
                     name: product.name,
                     price: product.price,
                     image_url: selectedVariant?.image_url || product.image_url,
@@ -91,7 +91,7 @@ export function ProductDetailClient({ product, variants, totalStock }: ProductDe
         if (directStock > 0) {
              addToCart({
                 id: selectedVariant?.id,
-                productId: product.id, // <--- ADICIONADO PARA O LINK DA SIDEBAR
+                productId: product.id, // <--- ADICIONADO: Garante que o link da sidebar funcione
                 name: product.name,
                 price: product.price,
                 image_url: selectedVariant?.image_url || product.image_url,
@@ -181,8 +181,6 @@ export function ProductDetailClient({ product, variants, totalStock }: ProductDe
                             <div className="flex flex-wrap gap-3">
                                 {currentVariantStocks.map((s: any) => {
                                     const qty = Number(s.quantity) || 0;
-                                    // Se a quantidade for 0, não mostramos ou mostramos desabilitado.
-                                    // Para limpar a UI, podemos mostrar só os > 0, ou todos desabilitados.
                                     return (
                                         <button
                                             key={s.id}
