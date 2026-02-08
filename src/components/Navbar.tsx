@@ -49,13 +49,13 @@ function NavbarContent() {
                         <span className="text-white flex">FUTURE<span className="text-cyan-400">STORE</span></span>
                     </Link>
 
-                    {/* --- MENU DESKTOP COM CASCATA (LINKS CORRIGIDOS) --- */}
+                    {/* --- MENU DESKTOP --- */}
                     <div className="hidden lg:flex gap-8 text-sm font-medium text-gray-300 h-full items-center">
                         <Link href="/" className="hover:text-white transition-colors uppercase tracking-wide">Início</Link>
 
                         {categories.map((cat) => (
                             <div key={cat.id} className="relative group h-full flex items-center">
-                                {/* Link da Categoria Pai (Usa ID agora) */}
+                                {/* Link da Categoria Pai */}
                                 <Link
                                     href={`/category/${cat.id}`}
                                     className="flex items-center gap-1 hover:text-white transition-colors uppercase tracking-wide py-6"
@@ -69,7 +69,6 @@ function NavbarContent() {
                                         {cat.subcategories?.map((sub: any) => (
                                             <Link
                                                 key={sub.id}
-                                                // Link Correto: Categoria ID + Subcategoria ID
                                                 href={`/category/${cat.id}?sub=${sub.id}`}
                                                 className="px-6 py-3 text-xs font-bold uppercase text-gray-400 hover:text-white hover:bg-white/5 transition-colors flex items-center justify-between group/item"
                                             >
@@ -94,14 +93,33 @@ function NavbarContent() {
                             )}
                         </button>
 
-                        <button className="lg:hidden text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+                        {/* Botão Hambúrguer (Abre o menu) */}
+                        <button className="lg:hidden text-white" onClick={() => setIsMobileMenuOpen(true)}>
+                            <Menu size={28} />
                         </button>
                     </div>
                 </div>
 
-                {/* --- MENU MOBILE (PRETO SÓLIDO / LINKS CORRIGIDOS) --- */}
+                {/* --- MENU MOBILE (CORRIGIDO) --- */}
                 <div className={`fixed inset-0 bg-black z-[110] lg:hidden flex flex-col transition-all duration-300 ease-out ${isMobileMenuOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"}`}>
+                    
+                    {/* [NOVO] Cabeçalho do Mobile com Botão Fechar */}
+                    <div className="absolute top-0 left-0 w-full h-20 flex items-center justify-between px-4 border-b border-white/10 bg-black">
+                         {/* Logo no Mobile Menu (Opcional, mas fica bonito) */}
+                         <div className="flex items-center gap-2 text-xl font-black italic">
+                            <Zap size={20} className="text-cyan-400" />
+                            <span className="text-white flex">FUTURE<span className="text-cyan-400">STORE</span></span>
+                        </div>
+
+                        {/* Botão FECHAR (X) */}
+                        <button 
+                            onClick={() => setIsMobileMenuOpen(false)} 
+                            className="text-white p-2 hover:text-red-500 transition-colors"
+                        >
+                            <X size={28} />
+                        </button>
+                    </div>
+
                     <div className="flex flex-col h-full pt-24 p-8 overflow-y-auto">
                         <Link href="/" onClick={handleNavigation} className="text-4xl font-black uppercase italic py-5 border-b border-white/10 text-white">Início</Link>
 
