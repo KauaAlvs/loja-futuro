@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+// --- IMPORTAÇÃO DA SERVER ACTION (NOVA LINHA) ---
+import { enviarEmailBoasVindas } from "@/app/actions";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -79,7 +81,6 @@ export default function CheckoutPage() {
 
         const { error } = await supabase.from('abandoned_carts').upsert({
             email: email,
-            // AQUI ESTÁ A CORREÇÃO: Salva o nome se existir, senão salva "Visitante"
             customer_name: addressForm.full_name || "Visitante",
             items: items,
             total_amount: itemsTotal,
@@ -201,7 +202,7 @@ export default function CheckoutPage() {
     const handleAuth = async (e: any) => {
         e.preventDefault();
         setLoading(true);
-        
+
         // Salva carrinho abandonado ao tentar avançar
         await saveAbandonedCart();
 
@@ -223,19 +224,17 @@ export default function CheckoutPage() {
                 if (error) throw error;
                 authUser = data.user;
 
-                // DISPARAR E-MAIL DE BOAS-VINDAS
-                if (authUser) {
-                    fetch("/api/send-welcome", {
-                        method: "POST",
-                        body: JSON.stringify({ email: authUser.email, name: "Cliente" }),
-                        headers: { "Content-Type": "application/json" }
-                    }).catch(err => console.error("Falha ao enviar e-mail", err));
+                // --- DISPARAR E-MAIL DE BOAS-VINDAS (ATUALIZADO) ---
+                if (authUser && authUser.email) {
+                    // Chama a Server Action importada do actions.ts
+                    // O nome vai "Cliente" pois ainda não preencheu o endereço, mas o email chega!
+                    enviarEmailBoasVindas(authUser.email, "Cliente");
                 }
             }
 
             if (authUser) {
                 setUser(authUser);
-                
+
                 // Busca endereço salvo
                 const { data: customerData } = await supabase.from('customers').select('*').eq('email', email).single();
                 if (customerData && customerData.zip) {
@@ -445,14 +444,14 @@ export default function CheckoutPage() {
                                 <form onSubmit={handleAuth} className="space-y-4 text-left">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">E-mail</label>
-                                        <input 
-                                            type="email" 
-                                            placeholder="E-mail" 
-                                            required 
-                                            value={email} 
-                                            onChange={e => setEmail(e.target.value)} 
+                                        <input
+                                            type="email"
+                                            placeholder="E-mail"
+                                            required
+                                            value={email}
+                                            onChange={e => setEmail(e.target.value)}
                                             onBlur={saveAbandonedCart} // Salva ao sair do campo
-                                            className="w-full bg-black border border-gray-700 rounded-xl p-3 text-sm focus:border-cyan-500 outline-none" 
+                                            className="w-full bg-black border border-gray-700 rounded-xl p-3 text-sm focus:border-cyan-500 outline-none"
                                         />
                                     </div>
                                     {!isLogin && (
@@ -502,14 +501,14 @@ export default function CheckoutPage() {
                                 </div>
                             ) : (
                                 <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 space-y-4">
-                                    <input 
-                                        required 
-                                        placeholder="Nome do Destinatário" 
-                                        name="full_name" 
-                                        value={addressForm.full_name} 
-                                        onChange={handleAddressChange} 
+                                    <input
+                                        required
+                                        placeholder="Nome do Destinatário"
+                                        name="full_name"
+                                        value={addressForm.full_name}
+                                        onChange={handleAddressChange}
                                         onBlur={saveAbandonedCart} // <--- AQUI ESTÁ A CORREÇÃO (Salva nome no blur)
-                                        className="w-full bg-black border border-gray-700 rounded-xl p-3 text-sm outline-none focus:border-cyan-500" 
+                                        className="w-full bg-black border border-gray-700 rounded-xl p-3 text-sm outline-none focus:border-cyan-500"
                                     />
                                     <div className="grid grid-cols-2 gap-4">
                                         <input required placeholder="CEP" name="zip_code" value={addressForm.zip_code} onChange={handleAddressChange} maxLength={9} className="bg-black border border-gray-700 rounded-xl p-3 text-sm outline-none focus:border-cyan-500" />
