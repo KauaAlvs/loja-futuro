@@ -14,19 +14,37 @@ export function CartSidebar() {
         setMounted(true);
     }, []);
 
-    // --- NOVO: BLOQUEIO DE ROLAGEM (SCROLL LOCK) ---
+    // --- NOVA LÓGICA DE TRAVAMENTO TOTAL (MOBILE FRIENDLY) ---
     useEffect(() => {
         if (isOpen) {
-            // Trava a rolagem da página de trás
-            document.body.style.overflow = 'hidden';
+            // 1. Salva a posição atual da rolagem para não perder o lugar
+            const scrollY = window.scrollY;
+            
+            // 2. Força o body a ficar fixo (Isso o celular obedece obrigatoriamente)
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.width = '100%';
+            document.body.style.overflowY = 'hidden'; // Adicional
         } else {
-            // Libera a rolagem quando fecha
-            document.body.style.overflow = '';
+            // 1. Recupera a posição que estava salva no 'top'
+            const scrollY = document.body.style.top;
+            
+            // 2. Remove as travas
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.width = '';
+            document.body.style.overflowY = '';
+
+            // 3. Rola a página de volta para onde o usuário estava
+            window.scrollTo(0, parseInt(scrollY || '0') * -1);
         }
 
-        // Limpeza (caso o componente desmonte com o carrinho aberto)
         return () => {
-            document.body.style.overflow = '';
+            // Limpeza de segurança
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.width = '';
+            document.body.style.overflowY = '';
         };
     }, [isOpen]);
 
@@ -38,20 +56,19 @@ export function CartSidebar() {
         <>
             {/* OVERLAY */}
             <div
-                className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300 touch-none ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
                 onClick={toggleCart}
-                // Previne que toques no fundo passem para o site (iOS fix)
-                onTouchMove={(e) => e.preventDefault()}
             />
 
             {/* SIDEBAR */}
             <aside
-                // Adicionei 'overscroll-contain' para garantir que o scroll fique preso aqui dentro
-                className={`fixed top-0 right-0 h-full w-full max-w-md bg-black border-l border-gray-800 z-50 shadow-2xl transform transition-transform duration-300 flex flex-col overscroll-contain ${isOpen ? "translate-x-0" : "translate-x-full"}`}
+                className={`fixed top-0 right-0 h-full w-full max-w-md bg-black border-l border-gray-800 z-50 shadow-2xl transform transition-transform duration-300 flex flex-col ${isOpen ? "translate-x-0" : "translate-x-full"}`}
+                // 'touch-action-pan-y' permite rolar verticalmente DENTRO da sidebar, mas não o fundo
+                style={{ touchAction: 'pan-y' }}
             >
 
                 {/* HEADER */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-800">
+                <div className="flex items-center justify-between p-6 border-b border-gray-800 shrink-0">
                     <h2 className="text-xl font-bold flex items-center gap-2">
                         <ShoppingBag className="text-cyan-400" /> Seu Carrinho
                         <span className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded-full">{items.length}</span>
@@ -62,7 +79,7 @@ export function CartSidebar() {
                 </div>
 
                 {/* LISTA DE ITENS */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar overscroll-contain">
                     {items.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
                             <ShoppingBag size={64} className="text-gray-700" />
@@ -75,7 +92,7 @@ export function CartSidebar() {
                         items.map((item) => (
                             <div key={`${item.id}-${item.variantId}-${item.size}`} className="flex gap-4 group animate-in slide-in-from-right-4 duration-300">
 
-                                {/* IMAGEM (Clicável) */}
+                                {/* IMAGEM */}
                                 <Link 
                                     href={`/product/${item.productId || item.id}`} 
                                     onClick={toggleCart}
@@ -91,7 +108,6 @@ export function CartSidebar() {
                                 {/* DETALHES */}
                                 <div className="flex-1 min-w-0 flex flex-col justify-between">
                                     <div>
-                                        {/* TÍTULO (Clicável) */}
                                         <Link 
                                             href={`/product/${item.productId || item.id}`}
                                             onClick={toggleCart}
@@ -150,7 +166,7 @@ export function CartSidebar() {
 
                 {/* RODAPÉ */}
                 {items.length > 0 && (
-                    <div className="p-6 bg-gray-900 border-t border-gray-800">
+                    <div className="p-6 bg-gray-900 border-t border-gray-800 shrink-0">
                         <div className="flex justify-between items-center text-lg font-bold mb-6">
                             <span>Total</span>
                             <span className="text-cyan-400">R$ {total.toFixed(2)}</span>
