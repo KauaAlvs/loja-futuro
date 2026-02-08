@@ -52,7 +52,7 @@ export const WelcomeEmail = ({ userFirstname }: WelcomeEmailProps) => (
         <Hr style={hr} />
 
         <Text style={footer}>
-          © 2024 Loja do Futuro Inc.
+          © 2026 Loja do Futuro Inc.
         </Text>
       </Container>
     </Body>
