@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { ProductDetailClient } from "@/components/ProductDetailClient";
 import { Metadata } from "next";
@@ -18,7 +18,7 @@ export default async function ProductPage(props: { params: Promise<{ id: string 
     const params = await props.params;
     const { id } = params;
 
-    // Busca produto, variantes e a árvore de categorias
+    // Busca produto, variantes e a árvore de categorias, incluindo agora o estoque (tamanhos)
     const { data: product } = await supabase
         .from('products')
         .select(`
@@ -28,7 +28,10 @@ export default async function ProductPage(props: { params: Promise<{ id: string 
                 name,
                 categories (id, name)
             ),
-            product_variants (*)
+            product_variants (
+                *,
+                product_stock (*)
+            )
         `)
         .eq('id', id)
         .single();
@@ -42,11 +45,13 @@ export default async function ProductPage(props: { params: Promise<{ id: string 
         );
     }
 
-    // Calcula estoque total para passar para o cliente
-    const totalStock = product.product_variants?.reduce((acc: number, v: any) => acc + (v.stock || 0), 0) || 0;
+    // Calcula estoque total somando todas as quantidades de todas as variantes e tamanhos
+    const totalStock = product.product_variants?.reduce((acc: number, variant: any) => {
+        const variantStock = variant.product_stock?.reduce((sum: number, stock: any) => sum + (stock.quantity || 0), 0) || 0;
+        return acc + variantStock;
+    }, 0) || 0;
 
     return (
-        // CORREÇÃO DO GAP: pt-[85px] para colar na Navbar
         <main className="min-h-screen bg-[#050505] text-white pt-[85px] pb-20 px-4">
             <div className="container mx-auto max-w-7xl">
 
@@ -85,6 +90,7 @@ export default async function ProductPage(props: { params: Promise<{ id: string 
                 </nav>
 
                 {/* --- COMPONENTE CLIENTE (Visual e Interatividade) --- */}
+                {/* Agora passamos as variantes que já contêm o array product_stock dentro delas */}
                 <ProductDetailClient
                     product={product}
                     variants={product.product_variants || []}
