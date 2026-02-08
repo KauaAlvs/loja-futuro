@@ -33,25 +33,24 @@ export default async function ProductPage(props: { params: Promise<{ id: string 
     if (error || !product) {
         return (
             <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-4">
-                <h1 className="text-3xl font-black uppercase mb-4 tracking-tighter text-red-500">Produto não encontrado</h1>
+                <h1 className="text-3xl font-black uppercase mb-4 text-red-500">Produto não encontrado</h1>
                 <Link href="/" className="text-cyan-400 hover:underline font-bold uppercase tracking-widest text-xs">Voltar para a Home</Link>
             </div>
         );
     }
 
     /**
-     * LÓGICA DE ESTOQUE GLOBAL (HÍBRIDA)
-     * Para cada variante, decidimos se usamos a tabela de tamanhos ou a coluna stock.
+     * CÁLCULO DE ESTOQUE INTELIGENTE:
+     * Verifica se cada variante usa tabela de tamanhos ou estoque direto.
      */
     const totalStock = product.product_variants?.reduce((acc: number, variant: any) => {
         const hasSizeRecords = variant.product_stock && variant.product_stock.length > 0;
         
         if (hasSizeRecords) {
-            // É um item com tamanhos (Moda)
-            const sizeSum = variant.product_stock.reduce((sum: number, s: any) => sum + (Number(s.quantity) || 0), 0);
-            return acc + sizeSum;
+            // Soma a quantidade dos tamanhos (P, M, G...)
+            return acc + variant.product_stock.reduce((sum: number, s: any) => sum + (Number(s.quantity) || 0), 0);
         } else {
-            // É um item sem tamanhos (Eletrônico/Acessório)
+            // Usa o estoque direto da variante (Bonés, Acessórios)
             return acc + (Number(variant.stock) || 0);
         }
     }, 0) || 0;
