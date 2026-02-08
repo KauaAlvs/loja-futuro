@@ -1,30 +1,27 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-// Mantendo a interface original para não quebrar o Checkout
 export interface CartItem {
-    id: number;
-    variantId: number;   // O Checkout usa isso
+    id: string | number;        // ID do item no carrinho (pode ser Stock ID ou Variant ID)
+    productId: string | number; // <--- NOVO: ID do Produto Pai (para o Link funcionar)
+    variantId: string | number; // ID da variante (usado para remover/atualizar)
     name: string;
     price: number;
     quantity: number;
-    image: string;       // O Checkout usa isso (não image_url)
+    image: string;
     color: string;
-    size?: string;       // ADICIONADO: Opcional, para não quebrar código antigo
+    size?: string | null;       // Opcional
 }
 
 interface CartStore {
     items: CartItem[];
     isOpen: boolean;
 
-    // Funções Originais (Mantidas)
     toggleCart: () => void;
     addItem: (product: any, variant: any) => void;
-    removeItem: (variantId: number) => void;
-    updateQuantity: (variantId: number, quantity: number) => void;
+    removeItem: (variantId: string | number) => void;
+    updateQuantity: (variantId: string | number, quantity: number) => void;
     clearCart: () => void;
-
-    // NOVA FUNÇÃO (Para funcionar com a página de produto nova)
     addToCart: (item: any) => void;
 }
 
@@ -36,10 +33,11 @@ export const useCartStore = create<CartStore>()(
 
             toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
 
-            // --- SEU CÓDIGO ANTIGO (MANTIDO) ---
+            // --- FUNÇÃO LEGADO (Mantida por segurança) ---
             addItem: (product, variant) => {
                 const { items } = get();
                 const existingItem = items.find((item) => item.variantId === variant.id);
+
                 if (existingItem) {
                     set({
                         items: items.map((item) =>
@@ -55,12 +53,14 @@ export const useCartStore = create<CartStore>()(
                             ...items,
                             {
                                 id: product.id,
+                                productId: product.id, // Adicionado aqui também
                                 variantId: variant.id,
                                 name: product.name,
                                 price: product.price,
                                 quantity: 1,
                                 image: variant.image_url || product.image_url,
-                                color: variant.color_name
+                                color: variant.color_name,
+                                size: null
                             },
                         ],
                         isOpen: true,
@@ -68,28 +68,27 @@ export const useCartStore = create<CartStore>()(
                 }
             },
 
-            // --- NOVA FUNÇÃO DE ADAPTADOR ---
-            // Recebe o formato novo e converte para o formato antigo
+            // --- NOVA FUNÇÃO (Usada pelo ProductDetailClient) ---
             addToCart: (newItem) => {
                 const { items } = get();
 
-                // Mapeia: image_url -> image | variant_id -> variantId
+                // Mapeia os dados recebidos para o formato da Store
                 const itemToStore: CartItem = {
                     id: newItem.id,
-                    variantId: newItem.variant_id || 0,
+                    productId: newItem.productId || newItem.id, // <--- PEGA O ID DO PAI AQUI
+                    variantId: newItem.variant_id || newItem.id, // Fallback se não tiver variant_id
                     name: newItem.name,
                     price: newItem.price,
                     quantity: newItem.quantity,
                     image: newItem.image_url || "",
                     color: newItem.color || "",
-                    size: newItem.size // Salva o tamanho se vier
+                    size: newItem.size || null
                 };
 
-                // Verifica se já existe (agora considerando o tamanho também)
+                // Verifica se já existe um item igual (mesmo ID, Variante e Tamanho)
                 const existingItemIndex = items.findIndex((item) =>
-                    item.id === itemToStore.id &&
-                    item.variantId === itemToStore.variantId &&
-                    item.size === itemToStore.size
+                    (item.id === itemToStore.id) && 
+                    (item.size === itemToStore.size) // Importante verificar tamanho para não somar P com M
                 );
 
                 if (existingItemIndex > -1) {
@@ -101,17 +100,18 @@ export const useCartStore = create<CartStore>()(
                 }
             },
 
-            // --- FUNÇÕES ANTIGAS (MANTIDAS) ---
             removeItem: (variantId) => {
                 set((state) => ({
-                    items: state.items.filter((item) => item.variantId !== variantId),
+                    items: state.items.filter((item) => item.variantId !== variantId && item.id !== variantId),
                 }));
             },
 
             updateQuantity: (variantId, quantity) => {
                 set((state) => ({
                     items: state.items.map((item) =>
-                        item.variantId === variantId ? { ...item, quantity: Math.max(1, quantity) } : item
+                        (item.variantId === variantId || item.id === variantId) 
+                            ? { ...item, quantity: Math.max(1, quantity) } 
+                            : item
                     ),
                 }));
             },

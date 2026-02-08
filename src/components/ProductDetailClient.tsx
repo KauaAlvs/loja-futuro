@@ -68,6 +68,7 @@ export function ProductDetailClient({ product, variants, totalStock }: ProductDe
             if (sizeObj && (Number(sizeObj.quantity) > 0)) {
                 addToCart({
                     id: sizeObj.id,
+                    productId: product.id, // <--- ADICIONADO PARA O LINK DA SIDEBAR
                     name: product.name,
                     price: product.price,
                     image_url: selectedVariant?.image_url || product.image_url,
@@ -90,6 +91,7 @@ export function ProductDetailClient({ product, variants, totalStock }: ProductDe
         if (directStock > 0) {
              addToCart({
                 id: selectedVariant?.id,
+                productId: product.id, // <--- ADICIONADO PARA O LINK DA SIDEBAR
                 name: product.name,
                 price: product.price,
                 image_url: selectedVariant?.image_url || product.image_url,

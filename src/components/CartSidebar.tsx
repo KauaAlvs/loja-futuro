@@ -1,7 +1,7 @@
 "use client";
 
 import { useCartStore } from "../app/store/cartStore";
-import { X, Plus, Minus, ShoppingBag, Trash2, ArrowRight, ArrowLeft } from "lucide-react"; // Importei ArrowLeft
+import { X, Plus, Minus, ShoppingBag, Trash2, ArrowRight, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -56,19 +56,30 @@ export function CartSidebar() {
                         items.map((item) => (
                             <div key={`${item.id}-${item.variantId}-${item.size}`} className="flex gap-4 group animate-in slide-in-from-right-4 duration-300">
 
-                                {/* IMAGEM */}
-                                <div className="relative w-20 h-20 bg-gray-900 rounded-xl overflow-hidden border border-gray-800 flex-shrink-0">
+                                {/* IMAGEM (Clicável) */}
+                                <Link 
+                                    href={`/product/${item.productId || item.id}`} 
+                                    onClick={toggleCart}
+                                    className="relative w-20 h-20 bg-gray-900 rounded-xl overflow-hidden border border-gray-800 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                >
                                     {item.image ? (
                                         <Image src={item.image} alt={item.name} fill className="object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-xs text-gray-600">Sem foto</div>
                                     )}
-                                </div>
+                                </Link>
 
                                 {/* DETALHES */}
                                 <div className="flex-1 min-w-0 flex flex-col justify-between">
                                     <div>
-                                        <h3 className="font-bold text-white truncate text-sm">{item.name}</h3>
+                                        {/* TÍTULO (Clicável) */}
+                                        <Link 
+                                            href={`/product/${item.productId || item.id}`}
+                                            onClick={toggleCart}
+                                            className="font-bold text-white truncate text-sm hover:text-cyan-400 transition-colors cursor-pointer block"
+                                        >
+                                            {item.name}
+                                        </Link>
 
                                         <div className="flex flex-wrap gap-2 mt-1">
                                             {item.color && (
@@ -89,8 +100,8 @@ export function CartSidebar() {
 
                                         <div className="flex items-center gap-3 bg-gray-900 rounded-lg p-1 border border-gray-800">
                                             <button
-                                                // Atualiza a Store antiga usando variantId (se tiver ID, Tamanho, etc, ajuste aqui)
-                                                onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+                                                // CORREÇÃO: Usar item.id primeiro para garantir que altera apenas ESTE item específico
+                                                onClick={() => updateQuantity(item.id || item.variantId, item.quantity - 1)}
                                                 className="p-1 hover:text-cyan-400 disabled:opacity-50 text-gray-400"
                                                 disabled={item.quantity <= 1}
                                             >
@@ -98,7 +109,8 @@ export function CartSidebar() {
                                             </button>
                                             <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
                                             <button
-                                                onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+                                                // CORREÇÃO: Usar item.id primeiro
+                                                onClick={() => updateQuantity(item.id || item.variantId, item.quantity + 1)}
                                                 className="p-1 hover:text-cyan-400 text-gray-400"
                                             >
                                                 <Plus size={12} />
@@ -108,7 +120,8 @@ export function CartSidebar() {
                                 </div>
 
                                 <button
-                                    onClick={() => removeItem(item.variantId)}
+                                    // CORREÇÃO: Usar item.id primeiro para não remover todos os tamanhos da mesma variante
+                                    onClick={() => removeItem(item.id || item.variantId)}
                                     className="text-gray-600 hover:text-red-500 transition-colors self-start p-1"
                                     title="Remover item"
                                 >
@@ -128,15 +141,13 @@ export function CartSidebar() {
                         </div>
 
                         <div className="space-y-3">
-                            {/* 1. BOTÃO CONTINUAR COMPRANDO (NOVO) */}
                             <button
-                                onClick={toggleCart} // Apenas fecha o sidebar
+                                onClick={toggleCart}
                                 className="w-full bg-transparent border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 hover:bg-gray-800 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all"
                             >
                                 <ArrowLeft size={18} /> Continuar Comprando
                             </button>
 
-                            {/* 2. BOTÃO FINALIZAR */}
                             <Link
                                 href="/checkout"
                                 onClick={toggleCart}
