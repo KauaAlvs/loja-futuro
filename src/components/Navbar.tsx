@@ -149,7 +149,7 @@ function NavbarContent() {
                     
                     {/* Rodapé Mobile */}
                     <div className="mt-auto py-8 text-center text-gray-600 text-xs uppercase tracking-widest">
-                        <p>© 2024 Future Store Inc.</p>
+                        <p>© 2026 Future Store Inc.</p>
                     </div>
                 </div>
             </div>

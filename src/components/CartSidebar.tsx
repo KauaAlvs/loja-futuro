@@ -14,6 +14,22 @@ export function CartSidebar() {
         setMounted(true);
     }, []);
 
+    // --- NOVO: BLOQUEIO DE ROLAGEM (SCROLL LOCK) ---
+    useEffect(() => {
+        if (isOpen) {
+            // Trava a rolagem da página de trás
+            document.body.style.overflow = 'hidden';
+        } else {
+            // Libera a rolagem quando fecha
+            document.body.style.overflow = '';
+        }
+
+        // Limpeza (caso o componente desmonte com o carrinho aberto)
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     if (!mounted) return null;
 
     const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -24,11 +40,14 @@ export function CartSidebar() {
             <div
                 className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
                 onClick={toggleCart}
+                // Previne que toques no fundo passem para o site (iOS fix)
+                onTouchMove={(e) => e.preventDefault()}
             />
 
             {/* SIDEBAR */}
             <aside
-                className={`fixed top-0 right-0 h-full w-full max-w-md bg-black border-l border-gray-800 z-50 shadow-2xl transform transition-transform duration-300 flex flex-col ${isOpen ? "translate-x-0" : "translate-x-full"}`}
+                // Adicionei 'overscroll-contain' para garantir que o scroll fique preso aqui dentro
+                className={`fixed top-0 right-0 h-full w-full max-w-md bg-black border-l border-gray-800 z-50 shadow-2xl transform transition-transform duration-300 flex flex-col overscroll-contain ${isOpen ? "translate-x-0" : "translate-x-full"}`}
             >
 
                 {/* HEADER */}
@@ -100,7 +119,6 @@ export function CartSidebar() {
 
                                         <div className="flex items-center gap-3 bg-gray-900 rounded-lg p-1 border border-gray-800">
                                             <button
-                                                // CORREÇÃO: Usar item.id primeiro para garantir que altera apenas ESTE item específico
                                                 onClick={() => updateQuantity(item.id || item.variantId, item.quantity - 1)}
                                                 className="p-1 hover:text-cyan-400 disabled:opacity-50 text-gray-400"
                                                 disabled={item.quantity <= 1}
@@ -109,7 +127,6 @@ export function CartSidebar() {
                                             </button>
                                             <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
                                             <button
-                                                // CORREÇÃO: Usar item.id primeiro
                                                 onClick={() => updateQuantity(item.id || item.variantId, item.quantity + 1)}
                                                 className="p-1 hover:text-cyan-400 text-gray-400"
                                             >
@@ -120,7 +137,6 @@ export function CartSidebar() {
                                 </div>
 
                                 <button
-                                    // CORREÇÃO: Usar item.id primeiro para não remover todos os tamanhos da mesma variante
                                     onClick={() => removeItem(item.id || item.variantId)}
                                     className="text-gray-600 hover:text-red-500 transition-colors self-start p-1"
                                     title="Remover item"
