@@ -1,6 +1,6 @@
 "use client";
 
-import { useCartStore } from "@/app/store/cartStore"; // Importação corrigida com @
+import { useCartStore } from "@/app/store/cartStore";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -56,7 +56,7 @@ export default function CheckoutPage() {
     const [couponLoading, setCouponLoading] = useState(false);
     const [couponError, setCouponError] = useState("");
 
-    // --- CÁLCULOS (CORRIGIDO TYPE ANY) ---
+    // --- CÁLCULOS ---
     const itemsTotal = items.reduce((acc: number, item: any) => acc + item.price * item.quantity, 0);
     const shippingCost = selectedShipping ? selectedShipping.price : 0;
 
@@ -72,15 +72,18 @@ export default function CheckoutPage() {
 
     // --- 1. FUNÇÃO DE CARRINHO ABANDONADO (AUTO-SAVE) ---
     const saveAbandonedCart = async () => {
+        // Só salva se tiver e-mail válido e itens
         if (!email || !email.includes('@') || items.length === 0) return;
 
         console.log("🛒 Salvando carrinho abandonado para:", email);
 
         const { error } = await supabase.from('abandoned_carts').upsert({
             email: email,
+            // AQUI ESTÁ A CORREÇÃO: Salva o nome se existir, senão salva "Visitante"
+            customer_name: addressForm.full_name || "Visitante",
             items: items,
             total_amount: itemsTotal,
-            status: 'pending',
+            status: 'pending', // Pendente até comprar
             created_at: new Date().toISOString()
         }, { onConflict: 'email' });
 
@@ -133,6 +136,7 @@ export default function CheckoutPage() {
                 return;
             }
 
+            // Validações
             if (data.expires_at && new Date(data.expires_at) < new Date()) {
                 setCouponError("Este cupom expirou.");
                 return;
@@ -198,6 +202,7 @@ export default function CheckoutPage() {
         e.preventDefault();
         setLoading(true);
         
+        // Salva carrinho abandonado ao tentar avançar
         await saveAbandonedCart();
 
         try {
@@ -231,6 +236,7 @@ export default function CheckoutPage() {
             if (authUser) {
                 setUser(authUser);
                 
+                // Busca endereço salvo
                 const { data: customerData } = await supabase.from('customers').select('*').eq('email', email).single();
                 if (customerData && customerData.zip) {
                     const formatted = {
@@ -309,7 +315,7 @@ export default function CheckoutPage() {
 
             if (orderError) throw orderError;
 
-            // 2. Salvar Itens (CORRIGIDO TYPE ANY)
+            // 2. Salvar Itens
             const orderItems = items.map((item: any) => ({
                 order_id: order.id,
                 product_id: item.id,
@@ -320,7 +326,7 @@ export default function CheckoutPage() {
             }));
             await supabase.from('order_items').insert(orderItems);
 
-            // 3. Atualizar Estoque (CORRIGIDO TYPE ANY)
+            // 3. Atualizar Estoque
             for (const item of items as any[]) {
                 if (item.variantId) {
                     const { data: v } = await supabase.from('product_variants').select('stock').eq('id', item.variantId).single();
@@ -332,14 +338,17 @@ export default function CheckoutPage() {
                 }
             }
 
+            // 4. Incrementar uso do cupom
             if (appliedCoupon) {
                 await supabase.from('coupons').update({ usage_count: appliedCoupon.usage_count + 1 }).eq('id', appliedCoupon.id);
             }
 
+            // 5. Limpar Carrinho Abandonado (Marca como recuperado)
             await supabase.from('abandoned_carts')
                 .update({ status: 'recovered', recovered: true })
                 .eq('email', email);
 
+            // 6. Integração Mercado Pago
             const mpResponse = await fetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -355,6 +364,7 @@ export default function CheckoutPage() {
 
             const mpData = await mpResponse.json();
             if (mpData.init_point) {
+                // Redireciona para o Mercado Pago
                 window.location.href = mpData.init_point;
             } else {
                 throw new Error("Falha ao gerar link de pagamento.");
@@ -387,6 +397,7 @@ export default function CheckoutPage() {
 
             <div className="w-full max-w-xl">
 
+                {/* STEP 1: RESUMO */}
                 {step === 1 && (
                     <div className="animate-in fade-in duration-500">
                         <h1 className="text-2xl font-bold mb-6 flex items-center gap-2"><ShoppingBag className="text-cyan-400" size={24} /> Resumo da Compra</h1>
@@ -415,6 +426,7 @@ export default function CheckoutPage() {
                     </div>
                 )}
 
+                {/* STEP 2: AUTH */}
                 {step === 2 && (
                     <div className="animate-in fade-in duration-500">
                         <button onClick={() => setStep(1)} className="text-gray-500 flex items-center gap-2 mb-6 text-xs hover:text-white mx-auto md:mx-0"><ArrowLeft size={14} /> Voltar</button>
@@ -439,7 +451,7 @@ export default function CheckoutPage() {
                                             required 
                                             value={email} 
                                             onChange={e => setEmail(e.target.value)} 
-                                            onBlur={saveAbandonedCart} 
+                                            onBlur={saveAbandonedCart} // Salva ao sair do campo
                                             className="w-full bg-black border border-gray-700 rounded-xl p-3 text-sm focus:border-cyan-500 outline-none" 
                                         />
                                     </div>
@@ -470,6 +482,7 @@ export default function CheckoutPage() {
                     </div>
                 )}
 
+                {/* STEP 3: ENTREGA */}
                 {step === 3 && (
                     <div className="animate-in fade-in duration-500">
                         <h1 className="text-2xl font-bold mb-6 text-left">Dados de Entrega</h1>
@@ -489,7 +502,15 @@ export default function CheckoutPage() {
                                 </div>
                             ) : (
                                 <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 space-y-4">
-                                    <input required placeholder="Nome do Destinatário" name="full_name" value={addressForm.full_name} onChange={handleAddressChange} className="w-full bg-black border border-gray-700 rounded-xl p-3 text-sm outline-none focus:border-cyan-500" />
+                                    <input 
+                                        required 
+                                        placeholder="Nome do Destinatário" 
+                                        name="full_name" 
+                                        value={addressForm.full_name} 
+                                        onChange={handleAddressChange} 
+                                        onBlur={saveAbandonedCart} // <--- AQUI ESTÁ A CORREÇÃO (Salva nome no blur)
+                                        className="w-full bg-black border border-gray-700 rounded-xl p-3 text-sm outline-none focus:border-cyan-500" 
+                                    />
                                     <div className="grid grid-cols-2 gap-4">
                                         <input required placeholder="CEP" name="zip_code" value={addressForm.zip_code} onChange={handleAddressChange} maxLength={9} className="bg-black border border-gray-700 rounded-xl p-3 text-sm outline-none focus:border-cyan-500" />
                                         <input required placeholder="Rua" name="street" value={addressForm.street} onChange={handleAddressChange} className="bg-black border border-gray-700 rounded-xl p-3 text-sm outline-none focus:border-cyan-500" />
@@ -528,6 +549,7 @@ export default function CheckoutPage() {
                     </div>
                 )}
 
+                {/* STEP 4: PAGAMENTO COM CUPOM */}
                 {step === 4 && (
                     <div className="animate-in fade-in duration-500">
                         <button onClick={() => setStep(3)} className="text-gray-500 flex items-center gap-2 mb-6 text-xs mx-auto md:mx-0 hover:text-white"><ArrowLeft size={14} /> Voltar</button>
@@ -538,6 +560,7 @@ export default function CheckoutPage() {
                             <p className="text-gray-400 text-sm">Você será redirecionado para o Checkout Seguro do Mercado Pago.</p>
                         </div>
 
+                        {/* --- CAMPO DE CUPOM --- */}
                         <div className="bg-gray-900/50 p-6 rounded-2xl border border-gray-800 mb-6 transition-all">
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
@@ -567,6 +590,7 @@ export default function CheckoutPage() {
                                 )}
                             </div>
 
+                            {/* FEEDBACKS CUPOM */}
                             {appliedCoupon && (
                                 <div className="animate-in fade-in slide-in-from-top-2 duration-300 mt-3 bg-green-500/10 border border-green-500/20 rounded-lg p-3 flex items-center gap-2">
                                     <CheckCircle size={14} className="text-green-400" />
@@ -581,6 +605,7 @@ export default function CheckoutPage() {
                             )}
                         </div>
 
+                        {/* --- RESUMO FINAL --- */}
                         <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 mb-6 space-y-2 text-sm text-left">
                             <div className="flex justify-between"><span>Produtos</span><span>R$ {itemsTotal.toFixed(2)}</span></div>
                             <div className="flex justify-between"><span>Frete ({selectedShipping?.name})</span><span>R$ {shippingCost.toFixed(2)}</span></div>
