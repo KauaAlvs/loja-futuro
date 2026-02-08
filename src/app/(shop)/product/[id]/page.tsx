@@ -1,130 +1,251 @@
-import { supabase } from "@/lib/supabase";
-import { ChevronRight } from "lucide-react";
-import Link from "next/link";
-import { ProductDetailClient } from "@/components/ProductDetailClient";
-import { Metadata } from "next";
+"use client";
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+import { useState, useEffect, useMemo } from "react";
+import { useCartStore } from "../../../../app/store/cartStore";
+import {
+    ShoppingCart, Truck, ShieldCheck, Ruler,
+    AlertCircle, Check, X, Star, Package
+} from "lucide-react";
+import { SizeGuideModal } from "@/components/SizeGuideModal";
 
-/**
- * Gera os metadados da página (Título na aba do navegador)
- */
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-    const { id } = await params;
-    const { data: product } = await supabase
-        .from('products')
-        .select('name')
-        .eq('id', id)
-        .single();
-    
-    return { 
-        title: product?.name ? `${product.name} | Loja do Futuro` : 'Detalhes do Produto' 
-    };
+interface ProductDetailClientProps {
+    product: any;
+    variants: any[];
+    totalStock: number;
 }
 
-/**
- * Server Component: Busca os dados brutos do Banco de Dados
- */
-export default async function ProductPage(props: { params: Promise<{ id: string }> }) {
-    const params = await props.params;
-    const { id } = params;
+export function ProductDetailClient({ product, variants, totalStock }: ProductDetailClientProps) {
+    const { addToCart, toggleCart } = useCartStore();
 
-    // A query agora entra em 3 níveis: Produto -> Variantes -> Estoque (Tamanhos)
-    const { data: product, error } = await supabase
-        .from('products')
-        .select(`
-            *,
-            subcategories (
-                id,
-                name,
-                categories (id, name)
-            ),
-            product_variants (
-                *,
-                product_stock (*)
-            )
-        `)
-        .eq('id', id)
-        .single();
+    // --- ESTADOS ---
+    const [selectedVariant, setSelectedVariant] = useState<any>(() => {
+        return variants.find(v => {
+            const hasSizeStock = v.product_stock?.some((s: any) => s.quantity > 0);
+            const hasGeneralStock = (v.stock || 0) > 0;
+            return hasSizeStock || hasGeneralStock;
+        }) || variants[0] || null;
+    });
 
-    // Caso o produto não exista ou ocorra erro na busca
-    if (error || !product) {
-        return (
-            <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-4">
-                <div className="bg-white/5 border border-white/10 p-12 rounded-[2.5rem] text-center max-w-md">
-                    <h1 className="text-3xl font-black uppercase mb-4 tracking-tighter">Produto não encontrado</h1>
-                    <p className="text-gray-500 text-sm mb-8 font-medium">O item que você procura pode ter sido removido ou o link está incorreto.</p>
-                    <Link 
-                        href="/" 
-                        className="inline-block w-full py-4 bg-cyan-500 text-black font-black uppercase tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
-                    >
-                        Voltar para a Vitrine
-                    </Link>
-                </div>
-            </div>
-        );
-    }
+    const [selectedSize, setSelectedSize] = useState<string>("");
+    const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
+    const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
-    /**
-     * LÓGICA DE ESTOQUE TOTAL:
-     * O estoque real do produto é a soma da coluna 'quantity' de todos os registros
-     * na tabela 'product_stock' vinculados a este produto.
-     */
-    const totalStock = product.product_variants?.reduce((acc: number, variant: any) => {
-        const variantTotal = variant.product_stock?.reduce((sum: number, stockItem: any) => {
-            return sum + (stockItem.quantity || 0);
-        }, 0) || 0;
-        return acc + variantTotal;
-    }, 0) || 0;
+    // --- LÓGICA DE CATEGORIA E GUIA (DEFINIÇÃO GLOBAL NO COMPONENTE) ---
+    const categoryName = (product.subcategories?.categories?.name || "").toLowerCase();
+    const subcategoryName = (product.subcategories?.name || "").toLowerCase();
+
+    // Definição de palavras-chave para detectar calçados
+    const footwearKeywords = ["calçado", "tênis", "sapato", "bota", "salto", "chuteira", "sandália", "chinelo"];
+    const isFootwear = footwearKeywords.some(tag => categoryName.includes(tag) || subcategoryName.includes(tag));
+    
+    // Definição de palavras-chave para detectar moda em geral (mostrar guia)
+    const fashionKeywords = [...footwearKeywords, "roupa", "moda", "camiseta", "calça", "jaqueta", "moletom", "bermuda"];
+    const showSizeGuide = fashionKeywords.some(tag => categoryName.includes(tag) || subcategoryName.includes(tag));
+
+    const guideType = isFootwear ? "footwear" : "clothing";
+
+    // --- LÓGICA DE ESTOQUE ---
+    const currentVariantStocks = useMemo(() => selectedVariant?.product_stock || [], [selectedVariant]);
+    const hasSizes = currentVariantStocks.length > 0;
+
+    useEffect(() => {
+        setSelectedSize("");
+    }, [selectedVariant]);
+
+    // --- AÇÕES ---
+    const showMessage = (msg: string, type: 'success' | 'error' = 'success') => {
+        setToast({ message: msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    const handleAddToCart = () => {
+        if (totalStock <= 0) {
+            showMessage("Produto totalmente esgotado!", "error");
+            return;
+        }
+
+        if (hasSizes && !selectedSize) {
+            showMessage("Selecione um tamanho primeiro!", "error");
+            return;
+        }
+
+        const targetStock = hasSizes 
+            ? currentVariantStocks.find((s: any) => s.size === selectedSize)
+            : null;
+
+        addToCart({
+            id: targetStock?.id || selectedVariant?.id,
+            name: product.name,
+            price: product.price,
+            image_url: selectedVariant?.image_url || product.image_url,
+            quantity: 1,
+            variant_id: selectedVariant?.id,
+            color: selectedVariant?.color_name,
+            size: selectedSize || null
+        });
+
+        showMessage("Adicionado ao carrinho!");
+        toggleCart();
+    };
+
+    const currentImage = selectedVariant?.image_url || product.image_url;
 
     return (
-        <main className="min-h-screen bg-[#050505] text-white pt-[85px] pb-20 px-4">
-            <div className="container mx-auto max-w-7xl">
+        <div className="relative">
+            {/* TOAST NOTIFICATION */}
+            {toast && (
+                <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-6 py-4 rounded-2xl border shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300 ${
+                    toast.type === 'success' ? 'bg-[#0a0a0a] border-cyan-500/50 text-cyan-400' : 'bg-[#0a0a0a] border-red-500/50 text-red-400'
+                }`}>
+                    {toast.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
+                    <span className="font-bold text-xs uppercase tracking-widest whitespace-nowrap">{toast.message}</span>
+                    <button onClick={() => setToast(null)} className="ml-2 hover:text-white"><X size={14} /></button>
+                </div>
+            )}
 
-                {/* --- NAVEGAÇÃO (BREADCRUMB) --- */}
-                <nav className="flex items-center gap-2 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-10 overflow-x-auto whitespace-nowrap no-scrollbar">
-                    <Link href="/" className="hover:text-cyan-400 transition-colors">Home</Link>
-                    <ChevronRight size={12} className="flex-shrink-0" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
+                {/* COLUNA ESQUERDA: IMAGEM */}
+                <div className="space-y-6">
+                    <div className="aspect-square relative bg-[#0a0a0a] rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl group">
+                        <img
+                            src={currentImage}
+                            alt={product.name}
+                            className={`w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 ${totalStock === 0 ? 'grayscale opacity-40' : ''}`}
+                        />
+                        {totalStock === 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-4xl font-black uppercase text-red-500 tracking-widest border-4 border-red-500 px-8 py-4 -rotate-12 rounded-xl bg-black/50 backdrop-blur">
+                                    Esgotado
+                                </span>
+                            </div>
+                        )}
+                    </div>
 
-                    {product.subcategories?.categories && (
-                        <>
-                            <Link
-                                href={`/?category=${product.subcategories.categories.name.toLowerCase()}`}
-                                className="hover:text-cyan-400 transition-colors"
-                            >
-                                {product.subcategories.categories.name}
-                            </Link>
-                            <ChevronRight size={12} className="flex-shrink-0" />
-                        </>
+                    {/* Galeria de Variantes */}
+                    {variants.length > 1 && (
+                        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+                            {variants.map((v) => (
+                                <button
+                                    key={v.id}
+                                    onClick={() => setSelectedVariant(v)}
+                                    className={`relative w-20 h-20 rounded-2xl overflow-hidden border-2 flex-shrink-0 transition-all ${
+                                        selectedVariant?.id === v.id ? 'border-cyan-400 scale-105 opacity-100' : 'border-white/10 opacity-40 hover:opacity-100'
+                                    }`}
+                                >
+                                    <img src={v.image_url || product.image_url} className="w-full h-full object-cover" />
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* COLUNA DIREITA: INFOS */}
+                <div className="flex flex-col justify-center">
+                    <div className="flex items-center gap-1 text-cyan-400 mb-4">
+                        <Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" />
+                        <span className="text-[10px] text-gray-500 ml-2 font-bold uppercase">Qualidade Garantida</span>
+                    </div>
+
+                    <h1 className="text-4xl md:text-6xl font-black mb-4 uppercase text-white leading-none">
+                        {product.name}
+                    </h1>
+
+                    <div className="bg-white/5 border border-white/5 rounded-2xl p-6 mb-8 inline-block w-full">
+                        <span className="text-4xl font-black text-cyan-400 tracking-tight">R$ {product.price.toFixed(2)}</span>
+                    </div>
+
+                    {/* SELETOR DE CORES / OPÇÕES */}
+                    {variants.length > 0 && (
+                        <div className="mb-8">
+                            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">
+                                Opção: <span className="text-white ml-2">{selectedVariant?.color_name || "Padrão"}</span>
+                            </h3>
+                            <div className="flex flex-wrap gap-3">
+                                {variants.map((v) => (
+                                    <button
+                                        key={v.id}
+                                        onClick={() => setSelectedVariant(v)}
+                                        className={`px-6 py-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                                            selectedVariant?.id === v.id ? 'bg-white text-black border-white shadow-lg' : 'border-white/10 text-gray-400 hover:border-white/30'
+                                        }`}
+                                    >
+                                        {v.color_name || "Única"}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
-                    {product.subcategories && (
-                        <>
-                            <Link
-                                href={`/?subcategory=${product.subcategories.name.toLowerCase()}`}
-                                className="hover:text-cyan-400 transition-colors"
-                            >
-                                {product.subcategories.name}
-                            </Link>
-                            <ChevronRight size={12} className="flex-shrink-0" />
-                        </>
+                    {/* SELETOR DE TAMANHOS (SÓ SE EXISTIR NO BANCO) */}
+                    {hasSizes && (
+                        <div className="mb-10">
+                            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">
+                                Tamanho: <span className="text-cyan-400 ml-2">{selectedSize || "Selecione"}</span>
+                            </h3>
+                            <div className="flex flex-wrap gap-3">
+                                {currentVariantStocks.map((s: any) => (
+                                    <button
+                                        key={s.id}
+                                        disabled={s.quantity <= 0}
+                                        onClick={() => setSelectedSize(s.size)}
+                                        className={`min-w-[65px] h-[55px] flex items-center justify-center rounded-xl border text-xs font-black uppercase transition-all ${
+                                            selectedSize === s.size 
+                                                ? 'bg-cyan-500 text-black border-cyan-500' 
+                                                : s.quantity <= 0 ? 'opacity-20 cursor-not-allowed border-dashed' : 'border-white/10 text-white hover:border-cyan-500'
+                                        }`}
+                                    >
+                                        {s.size}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
-                    <span className="text-white truncate">{product.name}</span>
-                </nav>
+                    {showSizeGuide && (
+                        <div className="mb-6">
+                            <button onClick={() => setIsSizeGuideOpen(true)} className="text-[10px] font-black text-gray-400 hover:text-cyan-400 flex items-center gap-2 uppercase tracking-widest transition-colors">
+                                <Ruler size={16} /> Ver tabela de medidas
+                            </button>
+                        </div>
+                    )}
 
-                {/* --- COMPONENTE DE INTERAÇÃO (CLIENT-SIDE) --- */}
-                {/* Passamos o objeto product, a lista de variantes (que já contém o product_stock)
-                    e o totalStock calculado para o componente que lida com o estado da página.
-                */}
-                <ProductDetailClient
-                    product={product}
-                    variants={product.product_variants || []}
-                    totalStock={totalStock}
-                />
+                    <button
+                        onClick={handleAddToCart}
+                        disabled={totalStock === 0}
+                        className={`w-full py-6 rounded-[1.5rem] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-4 transition-all shadow-2xl ${
+                            totalStock === 0 ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-cyan-500 text-black hover:bg-cyan-400 active:scale-95'
+                        }`}
+                    >
+                        <ShoppingCart size={22} />
+                        {totalStock === 0 ? "Esgotado" : "Adicionar à Bag"}
+                    </button>
 
+                    {/* INFOS EXTRAS */}
+                    <div className="grid grid-cols-2 gap-4 mt-8">
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5">
+                            <Truck className="text-cyan-400" size={20} />
+                            <div>
+                                <p className="text-[10px] font-bold uppercase text-gray-300">Entrega Expressa</p>
+                                <p className="text-[9px] text-gray-500">Envio em 24h</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5">
+                            <ShieldCheck className="text-cyan-400" size={20} />
+                            <div>
+                                <p className="text-[10px] font-bold uppercase text-gray-300">Compra Segura</p>
+                                <p className="text-[9px] text-gray-500">Dados protegidos</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </main>
+
+            {/* MODAL DE GUIA DE TAMANHOS */}
+            <SizeGuideModal
+                isOpen={isSizeGuideOpen}
+                onClose={() => setIsSizeGuideOpen(false)}
+                type={guideType}
+            />
+        </div>
     );
 }
