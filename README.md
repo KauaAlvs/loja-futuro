@@ -49,3 +49,28 @@ A stack foi escolhida para garantir componentização escalável e estilização
 ```bash
 git clone [https://github.com/SEU_USUARIO/future-store.git](https://github.com/SEU_USUARIO/future-store.git)
 cd future-store
+```
+
+### 2. Instale as dependências
+```bash
+npm install
+# ou
+yarn install
+```
+
+### 3. Inicie o servidor de desenvolvimento
+```bash
+npm run dev
+# ou
+yarn dev
+```
+Acesse `http://localhost:3000` no seu navegador para ver a loja em funcionamento.
+
+---
+
+## 👨‍💻 Autor
+
+Desenvolvido com ☕ e foco em conversão por **Kauã**.
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/kaua-alves-silva/)
+[![Ver Projeto](https://img.shields.io/badge/Acessar_Loja-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://loja-futuro.vercel.app/)
